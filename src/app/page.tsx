@@ -1,101 +1,158 @@
-import Image from "next/image";
+// src/app/page.tsx
+'use client'
 
-export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+import { useState, useRef, useEffect } from 'react'
+import { useSocket } from '@/hooks/useSocket'
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+export default function ChatPage() {
+    const [username, setUsername] = useState('')
+    const [message, setMessage] = useState('')
+    const [isJoined, setIsJoined] = useState(false)
+    const messagesEndRef = useRef<HTMLDivElement>(null)
+    const {
+        connected,
+        messages,
+        users,
+        typingUsers,
+        sendMessage,
+        joinChat,
+        emitTyping,
+        emitStopTyping
+    } = useSocket()
+
+    const handleJoin = (e: React.FormEvent) => {
+        e.preventDefault()
+        if (username.trim()) {
+            joinChat(username)
+            setIsJoined(true)
+        }
+    }
+
+    const handleSendMessage = (e: React.FormEvent) => {
+        e.preventDefault()
+        if (message.trim()) {
+            sendMessage(message)
+            setMessage('')
+            emitStopTyping()
+        }
+    }
+
+    const handleTyping = () => {
+        emitTyping()
+    }
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, [messages])
+
+    if (!isJoined) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                <form onSubmit={handleJoin} className="bg-white p-8 rounded-lg shadow-md">
+                    <h2 className="text-2xl font-bold mb-6">Join Chat</h2>
+                    <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="Enter your username"
+                        className="w-full p-2 border rounded mb-4"
+                        required
+                    />
+                    <button
+                        type="submit"
+                        className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+                    >
+                        Join
+                    </button>
+                </form>
+            </div>
+        )
+    }
+
+    return (
+        <div className="min-h-screen bg-gray-100">
+            <div className="container mx-auto p-4">
+                <div className="grid grid-cols-4 gap-4">
+                    {/* Users List */}
+                    <div className="col-span-1 bg-black rounded-lg shadow p-4">
+                        <h2 className="text-xl font-bold mb-4">Online Users</h2>
+                        <div className="space-y-2">
+                            {users.map((user) => (
+                                <div
+                                    key={user.userId}
+                                    className="p-2 rounded"
+                                >
+                                    {user.username}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Chat Area */}
+                    <div className="col-span-3 bg-white rounded-lg shadow">
+                        {/* Messages */}
+                        <div className="h-[calc(100vh-200px)] overflow-y-auto p-4">
+                            {messages.map((msg, index) => (
+                                <div
+                                    key={index}
+                                    className={`mb-4 ${
+                                        msg.username === username
+                                            ? 'text-right'
+                                            : 'text-left'
+                                    }`}
+                                >
+                                    <div
+                                        className={`inline-block p-3 rounded-lg ${
+                                            msg.username === username
+                                                ? 'bg-blue-500 text-white'
+                                                : 'bg-gray-200'
+                                        }`}
+                                    >
+                                        <p className="font-bold text-sm">
+                                            {msg.username === username ? 'You' : msg.username}
+                                        </p>
+                                        <p>{msg.message}</p>
+                                        <p className="text-xs opacity-75">
+                                            {new Date(msg.timestamp).toLocaleTimeString()}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                            <div ref={messagesEndRef} />
+                        </div>
+
+                        {/* Typing Indicator */}
+                        <div className="h-6 px-4 text-sm text-gray-500 italic">
+                            {typingUsers.length > 0 &&
+                                `${typingUsers
+                                    .map((user) => user.username)
+                                    .join(', ')} ${
+                                    typingUsers.length === 1 ? 'is' : 'are'
+                                } typing...`}
+                        </div>
+
+                        {/* Message Input */}
+                        <form onSubmit={handleSendMessage} className="p-4 border-t">
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={message}
+                                    onChange={(e) => setMessage(e.target.value)}
+                                    onKeyPress={handleTyping}
+                                    placeholder="Type your message..."
+                                    className="flex-1 p-2 border rounded"
+                                />
+                                <button
+                                    type="submit"
+                                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                                >
+                                    Send
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+    )
 }

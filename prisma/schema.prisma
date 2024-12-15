@@ -1,0 +1,76 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  username      String    @unique
+  email         String    @unique
+  password      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  isOnline      Boolean   @default(false)
+  lastSeen      DateTime  @default(now())
+  
+  // Relations
+  sentMessages     Message[]  @relation("SentMessages")
+  receivedMessages Message[]  @relation("ReceivedMessages")
+  chats           ChatParticipant[]
+}
+
+model Chat {
+  id        String   @id @default(cuid())
+  type      ChatType @default(DIRECT) // DIRECT or GROUP
+  name      String?  // Required for group chats
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  messages      Message[]
+  participants  ChatParticipant[]
+}
+
+model ChatParticipant {
+  id        String   @id @default(cuid())
+  userId    String
+  chatId    String
+  joinedAt  DateTime @default(now())
+  leftAt    DateTime?
+  isAdmin   Boolean  @default(false)
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id])
+  chat      Chat     @relation(fields: [chatId], references: [id])
+
+  @@unique([userId, chatId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  senderId  String
+  chatId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  readAt    DateTime?
+  
+  // For direct messages
+  receiverId String?
+
+  // Relations
+  sender    User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver  User?    @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  chat      Chat     @relation(fields: [chatId], references: [id])
+}
+
+enum ChatType {
+  DIRECT
+  GROUP
+}
